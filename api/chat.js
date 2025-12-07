@@ -71,7 +71,7 @@ export default async function handler(req, res) {
   const systemInstruction = personas[responder] || personas['sq'];
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemInstruction }] },
