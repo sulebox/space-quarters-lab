@@ -49,8 +49,7 @@
       <div id="chat-log">
         <div class="msg bot">
           <span class="msg name">sq (Robot)</span>
-          ブイン！Space Quarters Labへようこそ！<br>
-          本番システム起動完了。ガガッ
+          Space Quarters Labへようこそ！<br>
         </div>
       </div>
       <form id="input-area">
@@ -109,12 +108,22 @@
     scene.add(ambientLight);
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); 
     scene.add(hemiLight);
+
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.1); 
     dirLight.position.set(10, 20, 10);
     dirLight.castShadow = true;
+    
+    // ★ここを追加：影の計算範囲を広げる設定
+    const d = 20; // 範囲を20メートル四方に広げる（元は5くらい）
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
+
     const spot = new THREE.SpotLight(0x3498db, 5, 20, 0.5, 0.5, 1);
     spot.position.set(-6, 8, -2);
     scene.add(spot);
