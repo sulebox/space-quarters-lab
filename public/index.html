@@ -515,15 +515,24 @@
                 updateBubble(char, 'やっと空いた！');
             }
         }
-        else if (ud.state === 'action') {
+　　　　　else if (ud.state === 'action') {
           ud.timer += dt;
-          if (ud.timer > 5.0) {
+          
+          // 行動によって立ち止まる時間を変える
+          let duration = 5.0; // デフォルト（トイレや休憩など）は5秒
+
+          // パソコン、溶接、X線、お菓子 は「1.5秒」に変更
+          if (['DRAWING', 'WELD', 'XRAY', 'SNACK'].includes(ud.actionType)) {
+              duration = 1.5;
+          }
+
+          if (ud.timer > duration) {
               if (ud.actionType === 'TOILET' && toiletUser === char) {
                   toiletUser = null;
               }
               pickNextAction(char);
           }
-        } 
+        }
         else if (ud.state === 'speaking') {
              ud.timer += dt;
              if (ud.config.type === 'human') setAction(char, 'idle');
