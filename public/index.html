@@ -113,8 +113,8 @@
     dirLight.position.set(10, 20, 10);
     dirLight.castShadow = true;
     
-    // ★ここを追加：影の計算範囲を広げる設定
-    const d = 20; // 範囲を20メートル四方に広げる（元は5くらい）
+    // 影の範囲設定
+    const d = 20; 
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d;
@@ -189,7 +189,7 @@
     box1.position.set(-0.5, 1.4, 2); scene.add(box1);
     const SNACK_POS = new THREE.Vector3(0, 0, 4);
 
-    // ★追加: Dance Spot (お菓子机の左)
+    // Dance Spot
     const DANCE_POS = new THREE.Vector3(-3.5, 0, 4.0);
 
     // 5. Toilet
@@ -228,7 +228,7 @@
       SNACK: { pos: SNACK_POS, msg: 'お菓子たべよっと' },
       TOILET:{ pos: TOILET_POS, msg: 'トイレ行こっと' },
       DRAWING:{ pos: PC_POS, msg: '図面かこっと' },
-      DANCE: { pos: DANCE_POS, msg: 'ダンスしよっと' }, // ★追加
+      DANCE: { pos: DANCE_POS, msg: 'ダンスしよっと' },
       IDLE:  { msg: 'ちょっと考えごと' }, 
       STOP:  { msg: 'ちょっとつかれた' },
       CHECK: { msg: '周囲をチェック中...ブイン' } 
@@ -240,7 +240,6 @@
         url: 'zawa.glb', 
         type: 'human',
         role: 'welding',
-        // ★追加: DANCEを追加
         tasks: ['WELD', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
         color: 0x3498db 
       },
@@ -248,7 +247,6 @@
         url: 'guchi.glb', 
         type: 'human',
         role: 'xray',
-        // ★追加: DANCEを追加
         tasks: ['XRAY', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
         color: 0x2ecc71 
       },
@@ -256,7 +254,7 @@
         url: 'sq.glb', 
         type: 'robot',
         role: 'vacuum',
-        tasks: ['VACUUM', 'CHECK', 'CHECK'],
+        tasks: ['VACUUM', 'CHECK', 'CHECK'], 
         color: 0xe74c3c 
       }
     };
@@ -317,7 +315,6 @@
       }
 
       const action = ACTIONS[taskKey];
-      // IDLEやCHECKの時はランダム位置へ移動
       if (taskKey === 'CHECK' || taskKey === 'IDLE') {
           char.userData.targetPos = getRandomLabPos();
       } else {
@@ -334,7 +331,6 @@
         const current = char.userData.currentAction;
         const action = char.userData.animations[name];
         if (!action) {
-            // アニメーションがない場合のフォールバック
             console.warn(`Animation "${name}" not found for ${char.userData.name}`);
             return;
         }
@@ -499,11 +495,10 @@
                     if (ud.config.type === 'human') setAction(char, 'idle');
                     updateBubble(char, 'ふぅ...');
                 } 
-                // ★追加: ケース2: ダンス
+                // ケース2: ダンス
                 else if (ud.actionType === 'DANCE') {
                     ud.state = 'action';
                     ud.timer = 0;
-                    // ダンスアニメーション再生！
                     if (ud.config.type === 'human') setAction(char, 'dance');
                     updateBubble(char, '♪〜'); 
                 }
@@ -511,7 +506,14 @@
                 else if (isWork) {
                     ud.state = 'action';
                     ud.timer = 0;
-                    if (ud.config.type === 'human') setAction(char, 'idle');
+                    if (ud.config.type === 'human') {
+                        // ★変更: 図面作成なら typing 再生、それ以外は idle
+                        if (ud.actionType === 'DRAWING') {
+                            setAction(char, 'typing');
+                        } else {
+                            setAction(char, 'idle');
+                        }
+                    }
                 }
                 // ケース4: 徘徊
                 else {
@@ -550,11 +552,10 @@
           
           let duration = 5.0; 
 
-          // 仕事は1.5秒
-          if (['DRAWING', 'WELD', 'XRAY', 'SNACK', 'VACUUM'].includes(ud.actionType)) {
+          // ★変更: DRAWING を 1.5秒枠から除外（デフォルト5秒へ）
+          if (['WELD', 'XRAY', 'SNACK', 'VACUUM'].includes(ud.actionType)) {
               duration = 1.5;
           }
-          // ダンスはデフォルトの5秒でたっぷり踊ります
 
           if (ud.timer > duration) {
               if (ud.actionType === 'TOILET' && toiletUser === char) {
