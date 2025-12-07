@@ -49,8 +49,7 @@
       <div id="chat-log">
         <div class="msg bot">
           <span class="msg name">sq (Robot)</span>
-          ブイン！Space Quarters Labへようこそ！<br>
-          本番システム起動完了。ガガッ
+          Space Quarters Labへようこそ！<br>
         </div>
       </div>
       <form id="input-area">
@@ -556,7 +555,7 @@
         updateBubble(responder, data.reply.substring(0, 10) + '...');
         
       } catch(err) {
-        addMsg('（通信エラー ガガッ）', 'bot');
+        addMsg('（通信エラーかも）', 'bot');
         updateBubble(responder, 'エラー...');
       } finally {
         input.disabled = false;
