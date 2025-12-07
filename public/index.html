@@ -59,16 +59,7 @@
     </div>
   </div>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
-
-<script type="module">
+ <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
@@ -140,6 +131,7 @@
     wallLeft.receiveShadow = true;
     scene.add(wallLeft);
 
+    // 1. Welding Station
     const weldTable = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 2.5), matMetal);
     weldTable.position.set(-8, 0.75, -2);
     weldTable.castShadow = true;
@@ -149,6 +141,7 @@
     scene.add(armBase);
     const WELDING_POS = new THREE.Vector3(-6.5, 0, -2);
 
+    // 2. X-ray Station
     const xrayMachine = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 4, 32), matMetal);
     xrayMachine.rotation.z = Math.PI / 2;
     xrayMachine.position.set(8, 2.2, -2);
@@ -159,6 +152,7 @@
     scene.add(xrayBed);
     const XRAY_POS = new THREE.Vector3(5, 0, -2);
 
+    // 3. Vacuum Chamber
     const vacuumChamber = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), new THREE.MeshStandardMaterial({color:0x95a5a6, metalness:0.8, roughness:0.1}));
     vacuumChamber.position.set(0, 1.8, -6);
     scene.add(vacuumChamber);
@@ -167,6 +161,7 @@
     scene.add(vacuumBase);
     const VACUUM_POS = new THREE.Vector3(0, 0, -3.5);
 
+    // 4. Snack Table
     const table = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 2), new THREE.MeshStandardMaterial({color:0xe67e22, roughness:0.5}));
     table.position.set(0, 0.6, 2);
     table.castShadow = true;
@@ -175,6 +170,7 @@
     box1.position.set(-0.5, 1.4, 2); scene.add(box1);
     const SNACK_POS = new THREE.Vector3(0, 0, 4);
 
+    // 5. Toilet
     const toiletWall = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 0.2), matWall);
     toiletWall.position.set(10.5, 2.5, 5);
     scene.add(toiletWall);
@@ -182,6 +178,17 @@
     toiletDoor.position.set(9, 2.5, 6.5);
     scene.add(toiletDoor);
     const TOILET_POS = new THREE.Vector3(10, 0, 7);
+
+    // ★追加: 6. Computer Station (Left side)
+    const pcDesk = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.2, 1.5), matMetal);
+    pcDesk.position.set(-11, 0.6, 6);
+    pcDesk.castShadow = true;
+    scene.add(pcDesk);
+    const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), matDark);
+    monitor.position.set(-11, 1.5, 6);
+    monitor.rotation.y = Math.PI / 2;
+    scene.add(monitor);
+    const PC_POS = new THREE.Vector3(-10, 0, 6);
 
     // ---- Character Logic ----
     const gltfLoader = new GLTFLoader();
@@ -198,6 +205,7 @@
       VACUUM:{ pos: VACUUM_POS, msg: '真空チャンバーみよっと' },
       SNACK: { pos: SNACK_POS, msg: 'お菓子たべよっと' },
       TOILET:{ pos: TOILET_POS, msg: 'トイレ行こっと' },
+      DRAWING:{ pos: PC_POS, msg: '図面かこっと' }, // ★追加
       IDLE:  { msg: 'ちょっと考えごと' }, 
       STOP:  { msg: 'ちょっとつかれた' },
       CHECK: { msg: '周囲をチェック中...ブイン' } 
@@ -209,21 +217,23 @@
         url: 'zawa.glb', 
         type: 'human',
         role: 'welding',
-        tasks: ['WELD', 'SNACK', 'TOILET'],
+        // ★追加: IDLEとDRAWINGを追加
+        tasks: ['WELD', 'SNACK', 'TOILET', 'IDLE', 'DRAWING'],
         color: 0x3498db 
       },
       guchi: { 
         url: 'guchi.glb', 
         type: 'human',
         role: 'xray',
-        tasks: ['XRAY', 'SNACK', 'TOILET'],
+        // ★追加: IDLEとDRAWINGを追加
+        tasks: ['XRAY', 'SNACK', 'TOILET', 'IDLE', 'DRAWING'],
         color: 0x2ecc71 
       },
       sq: { 
         url: 'sq.glb', 
         type: 'robot',
         role: 'vacuum',
-        tasks: ['VACUUM', 'CHECK', 'CHECK'],
+        tasks: ['VACUUM', 'CHECK', 'CHECK'], // ロボットはDRAWINGしない想定
         color: 0xe74c3c 
       }
     };
@@ -243,10 +253,9 @@
       el.style.opacity = text ? 1 : 0;
     }
 
-    // ★変更1: 吹き出しの位置を高く調整
+    // ★変更: 吹き出しの高さをユーザー指定の値 (sq:3.2, 人:3.8) に変更
     function updateBubblePos(char) {
       if (!char.userData.bubble || char.userData.bubble.style.opacity == 0) return;
-      // ロボット3.2m, 人間3.8m上空に表示 (キャラに被らない高さ)
       const offset = char.userData.config.type === 'robot' ? 3.2 : 3.8;
       const pos = char.position.clone().add(new THREE.Vector3(0, offset, 0)).project(camera);
       const x = (pos.x * .5 + .5) * window.innerWidth;
@@ -255,9 +264,8 @@
       char.userData.bubble.style.top = `${y}px`;
     }
 
-    // ★変更2: ランダム移動の範囲を壁の内側に限定
     function getRandomLabPos() {
-        // x: -9~9, z: -6~6 (壁際に行き過ぎない範囲)
+        // x: -9~9, z: -6~6
         return new THREE.Vector3(
             (Math.random() - 0.5) * 18, 
             0, 
@@ -288,7 +296,8 @@
       }
 
       const action = ACTIONS[taskKey];
-      if (taskKey === 'CHECK') {
+      // IDLEやCHECKの時はランダム位置へ移動（徘徊）
+      if (taskKey === 'CHECK' || taskKey === 'IDLE') {
           char.userData.targetPos = getRandomLabPos();
       } else {
           char.userData.targetPos = action.pos.clone().add(new THREE.Vector3((Math.random()-0.5), 0, (Math.random()-0.5)));
@@ -333,7 +342,6 @@
         const size = box.getSize(new THREE.Vector3());
         let scale = 1;
         
-        // 0.6サイズ設定
         if (conf.type === 'human') scale = 0.6 / size.y; 
         else scale = 1.2 / size.y; 
         
@@ -382,7 +390,7 @@
 
     const clock = new THREE.Clock();
     
-    // ラボの境界（この範囲外に出ないようにする）
+    // ラボの境界
     const BOUNDS = {
         xMin: -11.5, xMax: 11.5,
         zMin: -7.5, zMax: 12.0
@@ -419,7 +427,6 @@
               }
           }
           
-          // ★変更3: 壁抜け防止 (Clamp)
           char.position.x = Math.max(BOUNDS.xMin, Math.min(BOUNDS.xMax, char.position.x));
           char.position.z = Math.max(BOUNDS.zMin, Math.min(BOUNDS.zMax, char.position.z));
       }
