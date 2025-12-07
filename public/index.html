@@ -248,7 +248,7 @@
     function updateBubblePos(char) {
       if (!char.userData.bubble || char.userData.bubble.style.opacity == 0) return;
       // ロボット2.2m, 人間2.5m上空に表示 (キャラに被らない高さ)
-      const offset = char.userData.config.type === 'robot' ? 2.2 : 2.5;
+      const offset = char.userData.config.type === 'robot' ? 3.2 : 3.5;
       const pos = char.position.clone().add(new THREE.Vector3(0, offset, 0)).project(camera);
       const x = (pos.x * .5 + .5) * window.innerWidth;
       const y = (-(pos.y * .5) + .5) * window.innerHeight;
