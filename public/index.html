@@ -469,34 +469,45 @@
                 while (rotDiff < -Math.PI) rotDiff += Math.PI*2;
                 char.rotation.y += rotDiff * dt * 5.0;
             }
-          } else {
+            } else {
             // --- 目的地に到着した時の処理 ---
             if (ud.state === 'move') {
                 
-                // ケース1: トイレの場合（必ず少し留まる）
+                // 仕事リスト (これらは到着後に必ず作業時間をとる)
+                const workTasks = ['WELD', 'XRAY', 'VACUUM', 'SNACK', 'DRAWING'];
+                const isWork = workTasks.includes(ud.actionType);
+
+                // ケース1: トイレ（必ず止まる）
                 if (ud.actionType === 'TOILET') {
                     ud.state = 'action';
                     ud.timer = 0;
                     if (ud.config.type === 'human') setAction(char, 'idle');
                     updateBubble(char, 'ふぅ...');
                 } 
-                // ケース2: それ以外の場合
+                // ケース2: 仕事の場合（必ず止まって1.5秒作業する）
+                else if (isWork) {
+                    ud.state = 'action';
+                    ud.timer = 0;
+                    if (ud.config.type === 'human') setAction(char, 'idle');
+                    // 吹き出しはそのままでOK
+                }
+                // ケース3: ただの徘徊 (IDLE / CHECK)
                 else {
                     // 20%の確率で「休憩」する
                     if (Math.random() < 0.2) {
                         ud.state = 'action';
                         ud.timer = 0;
                         if (ud.config.type === 'human') setAction(char, 'idle');
-                        updateBubble(char, ACTIONS.STOP.msg); // 「ちょっとつかれた」
+                        updateBubble(char, ACTIONS.STOP.msg);
                     } 
-                    // ★ここが変更点: 休憩しないなら、待たずに即次へ！
+                    // 休憩しないなら即次へ
                     else {
                         pickNextAction(char);
                     }
                 }
 
             } else if (ud.state === 'move_wait') {
-                // トイレ待ち列に到着した場合
+                // トイレ待ち列に到着
                 ud.state = 'waiting';
                 if (ud.config.type === 'human') setAction(char, 'idle');
                 updateBubble(char, 'はやく終わらないかな...');
