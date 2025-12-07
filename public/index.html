@@ -265,7 +265,7 @@
     // ★変更: 吹き出しの高さをユーザー指定の値 (sq:3.2, 人:3.8) に変更
     function updateBubblePos(char) {
       if (!char.userData.bubble || char.userData.bubble.style.opacity == 0) return;
-      const offset = char.userData.config.type === 'robot' ? 3.2 : 3.8;
+      const offset = char.userData.config.type === 'robot' ? 3.2 : 4.0;
       const pos = char.position.clone().add(new THREE.Vector3(0, offset, 0)).project(camera);
       const x = (pos.x * .5 + .5) * window.innerWidth;
       const y = (-(pos.y * .5) + .5) * window.innerHeight;
@@ -351,7 +351,7 @@
         const size = box.getSize(new THREE.Vector3());
         let scale = 1;
         
-        if (conf.type === 'human') scale = 0.6 / size.y; 
+        if (conf.type === 'human') scale = 0.8 / size.y; 
         else scale = 1.2 / size.y; 
         
         model.scale.setScalar(scale);
