@@ -334,7 +334,7 @@
         let scale = 1;
         
         // 1.8m -> 1.1m 程度に小さく設定
-        if (conf.type === 'human') scale = 1.1 / size.y; 
+        if (conf.type === 'human') scale = 0.6 / size.y; 
         else scale = 1.2 / size.y; 
         
         model.scale.setScalar(scale);
