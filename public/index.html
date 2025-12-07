@@ -470,17 +470,33 @@
                 char.rotation.y += rotDiff * dt * 5.0;
             }
           } else {
-　　　　　　　if (ud.state === 'move') {
-                ud.state = 'action';
-                ud.timer = 0;
-                if (ud.config.type === 'human') setAction(char, 'idle');
-                if (ud.actionType === 'TOILET') updateBubble(char, 'ふぅ...');
+            // --- 目的地に到着した時の処理 ---
+            if (ud.state === 'move') {
                 
-                // ★ここを書き換え： 0.2 (20%) の確率でしか言わないようにする
-                else if (Math.random() < 0.2) updateBubble(char, ACTIONS.STOP.msg);
-                else updateBubble(char, ''); // それ以外は無言にする
-            }
-             else if (ud.state === 'move_wait') {
+                // ケース1: トイレの場合（必ず少し留まる）
+                if (ud.actionType === 'TOILET') {
+                    ud.state = 'action';
+                    ud.timer = 0;
+                    if (ud.config.type === 'human') setAction(char, 'idle');
+                    updateBubble(char, 'ふぅ...');
+                } 
+                // ケース2: それ以外の場合
+                else {
+                    // 20%の確率で「休憩」する
+                    if (Math.random() < 0.2) {
+                        ud.state = 'action';
+                        ud.timer = 0;
+                        if (ud.config.type === 'human') setAction(char, 'idle');
+                        updateBubble(char, ACTIONS.STOP.msg); // 「ちょっとつかれた」
+                    } 
+                    // ★ここが変更点: 休憩しないなら、待たずに即次へ！
+                    else {
+                        pickNextAction(char);
+                    }
+                }
+
+            } else if (ud.state === 'move_wait') {
+                // トイレ待ち列に到着した場合
                 ud.state = 'waiting';
                 if (ud.config.type === 'human') setAction(char, 'idle');
                 updateBubble(char, 'はやく終わらないかな...');
