@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Space Quarters Lab</title>
+  <style>
+    /* --- ラボ風スタイル --- */
+    html, body { height: 100%; margin: 0; background: #dfe6e9; touch-action: manipulation; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Meiryo, sans-serif; overflow: hidden; }
+    #app { position: fixed; inset: 0; z-index: 1; }
+    
+    /* 吹き出し */
+    .bubble { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -100%); padding: 8px 12px; background: rgba(255,255,255,0.98); border-radius: 8px; border: 1px solid #999; box-shadow: 0 4px 12px rgba(0,0,0,.15); font-size: 12px; pointer-events: none; transition: opacity .2s; z-index: 5; white-space: nowrap; font-weight: bold; color: #333; }
+    .bubble::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-width: 6px 5px 0; border-style: solid; border-color: rgba(255,255,255,0.98) transparent transparent transparent; }
+
+    /* チャットUI */
+    #chat-interface { position: fixed; bottom: 0; left: 0; width: 100%; height: 35%; pointer-events: none; z-index: 20; }
+    .chat-container { position: relative; width: 100%; max-width: 960px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
+    
+    #chat-log { 
+      flex: 1; overflow-y: auto; padding: 10px 20px; pointer-events: auto; 
+      background: linear-gradient(to top, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%); 
+      mask-image: linear-gradient(to bottom, transparent, black 20%); 
+      -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%); 
+      padding-bottom: 80px; 
+    }
+    
+    .msg { margin-bottom: 8px; font-size: 14px; line-height: 1.4; max-width: 80%; padding: 8px 12px; border-radius: 8px; animation: fadeIn 0.3s ease; }
+    .msg.user { margin-left: auto; background: #2980b9; color: white; border-bottom-right-radius: 2px; }
+    .msg.bot { margin-right: auto; background: #ffffff; color: #333; border: 1px solid #bdc3c7; border-bottom-left-radius: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .msg.name { font-size: 10px; color: #7f8c8d; margin-bottom: 2px; display: block; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* 入力エリア */
+    #input-area { pointer-events: auto; background: #ffffff; padding: 10px 15px; display: flex; gap: 10px; align-items: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); position: absolute; bottom: 0; left: 0; width: 100%; box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom, 10px); }
+    #chat-input { flex: 1; padding: 12px; border: 1px solid #bdc3c7; background: #f0f3f4; color: #333; border-radius: 24px; font-size: 16px; outline: none; transition: border-color 0.2s; }
+    #chat-input:focus { border-color: #e74c3c; background: #fff; } 
+    #send-btn { background: #e74c3c; color: white; border: none; padding: 0 20px; height: 44px; border-radius: 22px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+    #send-btn:active { transform: scale(0.95); }
+    #send-btn:disabled { background: #ccc; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="chat-interface">
+    <div class="chat-container">
+      <div id="chat-log">
+        <div class="msg bot">
+          <span class="msg name">sq (Robot)</span>
+          ブイン！Space Quarters Labへようこそ！<br>
+          本番システム起動完了。ガガッ
+        </div>
+      </div>
+      <form id="input-area">
+        <input type="text" id="chat-input" placeholder="質問を入力..." autocomplete="off" />
+        <button type="submit" id="send-btn">送信</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+    // ---- Setup ----
+    const $ = (id) => document.getElementById(id);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xc0c6c8); 
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    $('app').appendChild(renderer.domElement);
+
+    // Camera
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    const updateCamera = () => {
+      const aspect = window.innerWidth / window.innerHeight;
+      const zoom = window.innerWidth < 800 ? 14 : 20; 
+      const s = zoom;
+      camera.left = -s * aspect / 2; camera.right = s * aspect / 2;
+      camera.top = s / 2; camera.bottom = -s / 2;
+      camera.position.set(20, 20, 20);
+      camera.lookAt(0, 0, 0);
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener('resize', updateCamera);
+    updateCamera();
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+    scene.add(ambientLight);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); 
+    scene.add(hemiLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.1); 
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+    const spot = new THREE.SpotLight(0x3498db, 5, 20, 0.5, 0.5, 1);
+    spot.position.set(-6, 8, -2);
+    scene.add(spot);
+
+    // ---- Lab Environment ----
+    const matFloor = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.7 });
+    const matWall = new THREE.MeshStandardMaterial({ color: 0xecf0f1, roughness: 0.5 }); 
+    const matMetal = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.7, roughness: 0.2 });
+    const matDark = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.6 }); 
+    const matGlass = new THREE.MeshPhysicalMaterial({ color: 0xaaccff, transmission: 0.9, opacity: 0.5, transparent: true, roughness: 0.1 });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), matFloor);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(24, 6, 0.5), matWall);
+    wallBack.position.set(0, 3, -8);
+    wallBack.receiveShadow = true;
+    scene.add(wallBack);
+    
+    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 6, 16), matWall);
+    wallLeft.position.set(-12, 3, 0);
+    wallLeft.receiveShadow = true;
+    scene.add(wallLeft);
+
+    const weldTable = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 2.5), matMetal);
+    weldTable.position.set(-8, 0.75, -2);
+    weldTable.castShadow = true;
+    scene.add(weldTable);
+    const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.5), new THREE.MeshStandardMaterial({color:0xe67e22, roughness:0.4}));
+    armBase.position.set(-8, 1.75, -2);
+    scene.add(armBase);
+    const WELDING_POS = new THREE.Vector3(-6.5, 0, -2);
+
+    const xrayMachine = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 4, 32), matMetal);
+    xrayMachine.rotation.z = Math.PI / 2;
+    xrayMachine.position.set(8, 2.2, -2);
+    xrayMachine.castShadow = true;
+    scene.add(xrayMachine);
+    const xrayBed = new THREE.Mesh(new THREE.BoxGeometry(5, 0.2, 1.5), matDark);
+    xrayBed.position.set(8, 1.5, -2);
+    scene.add(xrayBed);
+    const XRAY_POS = new THREE.Vector3(5, 0, -2);
+
+    const vacuumChamber = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), new THREE.MeshStandardMaterial({color:0x95a5a6, metalness:0.8, roughness:0.1}));
+    vacuumChamber.position.set(0, 1.8, -6);
+    scene.add(vacuumChamber);
+    const vacuumBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 1.8), matDark);
+    vacuumBase.position.set(0, 0.9, -6);
+    scene.add(vacuumBase);
+    const VACUUM_POS = new THREE.Vector3(0, 0, -3.5);
+
+    const table = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 2), new THREE.MeshStandardMaterial({color:0xe67e22, roughness:0.5}));
+    table.position.set(0, 0.6, 2);
+    table.castShadow = true;
+    scene.add(table);
+    const box1 = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.4,0.6), new THREE.MeshStandardMaterial({color:0xf1c40f, roughness:0.5}));
+    box1.position.set(-0.5, 1.4, 2); scene.add(box1);
+    const SNACK_POS = new THREE.Vector3(0, 0, 4);
+
+    const toiletWall = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 0.2), matWall);
+    toiletWall.position.set(10.5, 2.5, 5);
+    scene.add(toiletWall);
+    const toiletDoor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 5, 3), matGlass);
+    toiletDoor.position.set(9, 2.5, 6.5);
+    scene.add(toiletDoor);
+    const TOILET_POS = new THREE.Vector3(10, 0, 7);
+
+    // ---- Character Logic ----
+    const gltfLoader = new GLTFLoader();
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    gltfLoader.setDRACOLoader(draco);
+
+    const chars = {}; 
+    
+    // アクション定義
+    const ACTIONS = {
+      WELD:  { pos: WELDING_POS, msg: '溶接しよっと' },
+      XRAY:  { pos: XRAY_POS, msg: 'X線みよっと' },
+      VACUUM:{ pos: VACUUM_POS, msg: '真空チャンバーみよっと' },
+      SNACK: { pos: SNACK_POS, msg: 'お菓子たべよっと' },
+      TOILET:{ pos: TOILET_POS, msg: 'トイレ行こっと' },
+      IDLE:  { msg: 'ちょっと考えごと' }, 
+      STOP:  { msg: 'ちょっとつかれた' },
+      CHECK: { msg: '周囲をチェック中...ブイン' } 
+    };
+
+    // キャラ設定 (本番用ファイル名)
+    const CHAR_CONFIG = {
+      zawa: { 
+        url: 'zawa.glb', 
+        type: 'human',
+        role: 'welding',
+        tasks: ['WELD', 'SNACK', 'TOILET'],
+        color: 0x3498db 
+      },
+      guchi: { 
+        url: 'guchi.glb', 
+        type: 'human',
+        role: 'xray',
+        tasks: ['XRAY', 'SNACK', 'TOILET'],
+        color: 0x2ecc71 
+      },
+      sq: { 
+        url: 'sq.glb', 
+        type: 'robot',
+        role: 'vacuum',
+        tasks: ['VACUUM', 'CHECK', 'CHECK'],
+        color: 0xe74c3c 
+      }
+    };
+
+    const toiletQueue = [];
+    let toiletUser = null;
+
+    function updateBubble(char, text) {
+      if (!char.userData.bubble) {
+        const el = document.createElement('div');
+        el.className = 'bubble';
+        document.body.appendChild(el);
+        char.userData.bubble = el;
+      }
+      const el = char.userData.bubble;
+      el.textContent = text;
+      el.style.opacity = text ? 1 : 0;
+    }
+
+    function updateBubblePos(char) {
+      if (!char.userData.bubble || char.userData.bubble.style.opacity == 0) return;
+      const offset = char.userData.config.type === 'robot' ? 1.5 : 2.2;
+      const pos = char.position.clone().add(new THREE.Vector3(0, offset, 0)).project(camera);
+      const x = (pos.x * .5 + .5) * window.innerWidth;
+      const y = (-(pos.y * .5) + .5) * window.innerHeight;
+      char.userData.bubble.style.left = `${x}px`;
+      char.userData.bubble.style.top = `${y}px`;
+    }
+
+    function getRandomLabPos() {
+        return new THREE.Vector3((Math.random() - 0.5) * 18, 0, (Math.random() - 0.5) * 12 - 2);
+    }
+
+    function pickNextAction(char) {
+      const conf = CHAR_CONFIG[char.userData.name];
+      const taskKey = conf.tasks[Math.floor(Math.random() * conf.tasks.length)];
+      
+      // トイレロジック
+      if (taskKey === 'TOILET') {
+          if (!toiletUser && toiletQueue.length === 0) {
+              toiletUser = char;
+              char.userData.targetPos = ACTIONS.TOILET.pos.clone();
+              char.userData.state = 'move';
+              char.userData.actionType = 'TOILET'; 
+              updateBubble(char, 'トイレ行こっと');
+          } else {
+              toiletQueue.push(char);
+              const waitOffset = toiletQueue.length * 1.5; 
+              char.userData.targetPos = ACTIONS.TOILET.pos.clone().add(new THREE.Vector3(-waitOffset, 0, 0));
+              char.userData.state = 'move_wait'; 
+              char.userData.actionType = 'TOILET_WAIT';
+              updateBubble(char, 'トイレ空くの待ってる...');
+          }
+          return;
+      }
+
+      const action = ACTIONS[taskKey];
+      if (taskKey === 'CHECK') {
+          char.userData.targetPos = getRandomLabPos();
+      } else {
+          char.userData.targetPos = action.pos.clone().add(new THREE.Vector3((Math.random()-0.5), 0, (Math.random()-0.5)));
+      }
+      
+      char.userData.state = 'move';
+      char.userData.actionType = taskKey;
+      updateBubble(char, action.msg);
+    }
+
+    // アニメーション切り替え関数
+    function setAction(char, name) {
+        if (!char.userData.mixer || !char.userData.animations) return;
+        const current = char.userData.currentAction;
+        const action = char.userData.animations[name];
+        if (!action) return;
+        if (current === action) return;
+        if (current) current.fadeOut(0.2);
+        action.reset().fadeIn(0.2).play();
+        char.userData.currentAction = action;
+    }
+
+    async function loadCharacter(name) {
+      const conf = CHAR_CONFIG[name];
+      try {
+        const gltf = await gltfLoader.loadAsync(conf.url);
+        const model = gltf.scene;
+        
+        // 影の設定
+        model.traverse(o => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+            }
+        });
+
+        // 高さ合わせ (簡易的: 1.8mくらいにスケール)
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        let scale = 1;
+        if (conf.type === 'human') scale = 1.8 / size.y;
+        else scale = 1.2 / size.y; // ロボットは少し小さめ
+        model.scale.setScalar(scale);
+
+        // ミキサー設定
+        let mixer = null;
+        let animations = {};
+        if (gltf.animations && gltf.animations.length) {
+            mixer = new THREE.AnimationMixer(model);
+            gltf.animations.forEach(clip => {
+                // 名前でアニメーションを登録 (walk, idleなど)
+                // GLB内のアニメーション名が異なる場合はここで調整が必要
+                animations[clip.name.toLowerCase()] = mixer.clipAction(clip);
+            });
+            // デフォルトで最初のやつをidleとして扱うなどのフォールバック
+            if (!animations['idle'] && gltf.animations[0]) animations['idle'] = mixer.clipAction(gltf.animations[0]);
+            if (!animations['walk'] && gltf.animations[1]) animations['walk'] = mixer.clipAction(gltf.animations[1]);
+        }
+
+        const group = new THREE.Group();
+        group.add(model);
+        group.userData = { 
+            name: name, 
+            config: conf, 
+            state: 'idle', 
+            timer: 0,
+            mixer: mixer,
+            animations: animations,
+            currentAction: null,
+            velocity: new THREE.Vector3() // 物理演算用
+        };
+        
+        // 初期位置
+        group.position.copy(getRandomLabPos());
+        
+        scene.add(group);
+        chars[name] = group;
+
+        if (mixer) setAction(group, 'idle');
+        pickNextAction(group);
+        return group;
+
+      } catch (e) {
+        console.error(`Failed to load ${conf.url}:`, e);
+      }
+    }
+
+    await loadCharacter('zawa');
+    await loadCharacter('guchi');
+    await loadCharacter('sq');
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      const time = clock.elapsedTime;
+
+      // キャラクター同士の衝突回避 (Separation)
+      const charArray = Object.values(chars);
+      for (let i = 0; i < charArray.length; i++) {
+          const char = charArray[i];
+          const ud = char.userData;
+          if (ud.state.startsWith('move')) {
+              let separation = new THREE.Vector3();
+              let count = 0;
+              for (let j = 0; j < charArray.length; j++) {
+                  if (i === j) continue;
+                  const other = charArray[j];
+                  const dist = char.position.distanceTo(other.position);
+                  const minDist = 1.2; // 衝突距離
+                  if (dist < minDist) {
+                      const push = char.position.clone().sub(other.position).normalize();
+                      push.divideScalar(dist); // 近いほど強く
+                      separation.add(push);
+                      count++;
+                  }
+              }
+              if (count > 0) {
+                  separation.divideScalar(count).multiplyScalar(dt * 2.0); // 反発力
+                  char.position.add(separation);
+              }
+          }
+      }
+
+      charArray.forEach(char => {
+        const ud = char.userData;
+        if (ud.mixer) ud.mixer.update(dt);
+        
+        // ロボット固有の動き
+        if (ud.config.type === 'robot' && char.children[0]) {
+          char.children[0].position.y = (char.children[0].scale.y * sizeY(char)/2) + Math.sin(time * 3) * 0.1;
+          if (ud.state.startsWith('move')) {
+               char.rotation.y += dt * 0.5; 
+          }
+        }
+
+        // 状態ロジック
+        if (ud.state === 'move' || ud.state === 'move_wait') {
+          // アニメーション: 歩行
+          if (ud.config.type === 'human') setAction(char, 'walk');
+
+          const dir = ud.targetPos.clone().sub(char.position);
+          dir.y = 0;
+          const dist = dir.length();
+          
+          if (dist > 0.1) {
+            dir.normalize();
+            char.position.add(dir.multiplyScalar(dt * 1.5));
+            if (ud.config.type === 'human') {
+                const targetRot = Math.atan2(dir.x, dir.z);
+                // 滑らかに回転
+                let rotDiff = targetRot - char.rotation.y;
+                while (rotDiff > Math.PI) rotDiff -= Math.PI*2;
+                while (rotDiff < -Math.PI) rotDiff += Math.PI*2;
+                char.rotation.y += rotDiff * dt * 5.0;
+            }
+          } else {
+            // 到着
+            if (ud.state === 'move') {
+                ud.state = 'action';
+                ud.timer = 0;
+                if (ud.config.type === 'human') setAction(char, 'idle');
+                if (ud.actionType === 'TOILET') updateBubble(char, 'ふぅ...');
+                else updateBubble(char, ACTIONS.STOP.msg);
+            } else if (ud.state === 'move_wait') {
+                ud.state = 'waiting';
+                if (ud.config.type === 'human') setAction(char, 'idle');
+                updateBubble(char, 'はやく終わらないかな...');
+                const lookDir = ACTIONS.TOILET.pos.clone().sub(char.position);
+                char.rotation.y = Math.atan2(lookDir.x, lookDir.z);
+            }
+          }
+        } 
+        else if (ud.state === 'waiting') {
+            if (!toiletUser && toiletQueue[0] === char) {
+                toiletQueue.shift(); 
+                toiletUser = char; 
+                ud.targetPos = ACTIONS.TOILET.pos.clone();
+                ud.state = 'move';
+                ud.actionType = 'TOILET';
+                updateBubble(char, 'やっと空いた！');
+            }
+        }
+        else if (ud.state === 'action') {
+          ud.timer += dt;
+          if (ud.timer > 5.0) {
+              if (ud.actionType === 'TOILET' && toiletUser === char) {
+                  toiletUser = null;
+              }
+              pickNextAction(char);
+          }
+        } 
+        else if (ud.state === 'speaking') {
+             ud.timer += dt;
+             if (ud.config.type === 'human') setAction(char, 'idle');
+             if (ud.config.type === 'robot') char.rotation.y += Math.sin(time * 20) * 0.05;
+             if (ud.timer > 8.0) pickNextAction(char);
+        }
+        
+        updateBubblePos(char);
+      });
+      renderer.render(scene, camera);
+    }
+    
+    // ヘルパー: バウンディングボックスからYサイズを取得
+    function sizeY(obj) {
+        const box = new THREE.Box3().setFromObject(obj);
+        return box.max.y - box.min.y;
+    }
+
+    animate();
+
+    // ---- Chat Logic ----
+    const form = $('input-area');
+    const input = $('chat-input');
+    const log = $('chat-log');
+
+    function addMsg(text, type, name='') {
+      const d = document.createElement('div');
+      d.className = `msg ${type}`;
+      if(name) {
+          const n = document.createElement('span');
+          n.className='msg name'; n.textContent=name;
+          d.appendChild(n);
+      }
+      d.innerHTML = text.replace(/\n/g, '<br>');
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const txt = input.value.trim();
+      if(!txt) return;
+      
+      addMsg(txt, 'user');
+      input.value = '';
+      input.disabled = true;
+
+      let responderKey = 'sq'; 
+      if (txt.includes('溶接') && !txt.includes('Space Quarters')) responderKey = 'zawa';
+      else if (txt.includes('X線') || txt.includes('レントゲン')) responderKey = 'guchi';
+      
+      const responder = chars[responderKey];
+      responder.userData.state = 'speaking';
+      responder.userData.timer = 0;
+      updateBubble(responder, 'ブイン...');
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ message: txt, responder: responderKey })
+        });
+        const data = await res.json();
+        
+        addMsg(data.reply, 'bot', responderKey.toUpperCase());
+        updateBubble(responder, data.reply.substring(0, 10) + '...');
+        
+      } catch(err) {
+        addMsg('（通信エラー ガガッ）', 'bot');
+        updateBubble(responder, 'エラー...');
+      } finally {
+        input.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
