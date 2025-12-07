@@ -1,73 +1,3 @@
-<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Space Quarters Lab</title>
-  <style>
-    /* --- ラボ風スタイル --- */
-    html, body { height: 100%; margin: 0; background: #dfe6e9; touch-action: manipulation; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Meiryo, sans-serif; overflow: hidden; }
-    #app { position: fixed; inset: 0; z-index: 1; }
-    
-    /* 吹き出し */
-    .bubble { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -100%); padding: 8px 12px; background: rgba(255,255,255,0.98); border-radius: 8px; border: 1px solid #999; box-shadow: 0 4px 12px rgba(0,0,0,.15); font-size: 12px; pointer-events: none; transition: opacity .2s; z-index: 5; white-space: nowrap; font-weight: bold; color: #333; }
-    .bubble::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-width: 6px 5px 0; border-style: solid; border-color: rgba(255,255,255,0.98) transparent transparent transparent; }
-
-    /* チャットUI */
-    #chat-interface { position: fixed; bottom: 0; left: 0; width: 100%; height: 35%; pointer-events: none; z-index: 20; }
-    .chat-container { position: relative; width: 100%; max-width: 960px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
-    
-    #chat-log { 
-      flex: 1; overflow-y: auto; padding: 10px 20px; pointer-events: auto; 
-      background: linear-gradient(to top, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%); 
-      mask-image: linear-gradient(to bottom, transparent, black 20%); 
-      -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%); 
-      padding-bottom: 80px; 
-    }
-    
-    .msg { margin-bottom: 8px; font-size: 14px; line-height: 1.4; max-width: 80%; padding: 8px 12px; border-radius: 8px; animation: fadeIn 0.3s ease; }
-    .msg.user { margin-left: auto; background: #2980b9; color: white; border-bottom-right-radius: 2px; }
-    .msg.bot { margin-right: auto; background: #ffffff; color: #333; border: 1px solid #bdc3c7; border-bottom-left-radius: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .msg.name { font-size: 10px; color: #7f8c8d; margin-bottom: 2px; display: block; }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    
-    /* 入力エリア */
-    #input-area { pointer-events: auto; background: #ffffff; padding: 10px 15px; display: flex; gap: 10px; align-items: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); position: absolute; bottom: 0; left: 0; width: 100%; box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom, 10px); }
-    #chat-input { flex: 1; padding: 12px; border: 1px solid #bdc3c7; background: #f0f3f4; color: #333; border-radius: 24px; font-size: 16px; outline: none; transition: border-color 0.2s; }
-    #chat-input:focus { border-color: #e74c3c; background: #fff; } 
-    #send-btn { background: #e74c3c; color: white; border: none; padding: 0 20px; height: 44px; border-radius: 22px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
-    #send-btn:active { transform: scale(0.95); }
-    #send-btn:disabled { background: #ccc; }
-  </style>
-</head>
-<body>
-  <div id="app"></div>
-
-  <div id="chat-interface">
-    <div class="chat-container">
-      <div id="chat-log">
-        <div class="msg bot">
-          <span class="msg name">sq (Robot)</span>
-          Space Quarters Labへようこそ！<br>
-        </div>
-      </div>
-      <form id="input-area">
-        <input type="text" id="chat-input" placeholder="質問を入力..." autocomplete="off" />
-        <button type="submit" id="send-btn">送信</button>
-      </form>
-    </div>
-  </div>
-
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
-
 <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -179,6 +109,9 @@
     box1.position.set(-0.5, 1.4, 2); scene.add(box1);
     const SNACK_POS = new THREE.Vector3(0, 0, 4);
 
+    // ★追加: Dance Spot (お菓子机の左)
+    const DANCE_POS = new THREE.Vector3(-3.5, 0, 4.0);
+
     // 5. Toilet
     const toiletWall = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 0.2), matWall);
     toiletWall.position.set(10.5, 2.5, 5);
@@ -188,7 +121,7 @@
     scene.add(toiletDoor);
     const TOILET_POS = new THREE.Vector3(10, 0, 7);
 
-    // ★追加: 6. Computer Station (Left side)
+    // 6. Computer Station
     const pcDesk = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.2, 1.5), matMetal);
     pcDesk.position.set(-11, 0.6, 6);
     pcDesk.castShadow = true;
@@ -214,7 +147,8 @@
       VACUUM:{ pos: VACUUM_POS, msg: '真空チャンバーみよっと' },
       SNACK: { pos: SNACK_POS, msg: 'お菓子たべよっと' },
       TOILET:{ pos: TOILET_POS, msg: 'トイレ行こっと' },
-      DRAWING:{ pos: PC_POS, msg: '図面かこっと' }, // ★追加
+      DRAWING:{ pos: PC_POS, msg: '図面かこっと' },
+      DANCE: { pos: DANCE_POS, msg: 'ダンスしよっと' }, // ★追加
       IDLE:  { msg: 'ちょっと考えごと' }, 
       STOP:  { msg: 'ちょっとつかれた' },
       CHECK: { msg: '周囲をチェック中...ブイン' } 
@@ -226,23 +160,23 @@
         url: 'zawa.glb', 
         type: 'human',
         role: 'welding',
-        // ★追加: IDLEとDRAWINGを追加
-        tasks: ['WELD', 'SNACK', 'TOILET', 'IDLE', 'DRAWING'],
+        // ★追加: DANCEを追加
+        tasks: ['WELD', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
         color: 0x3498db 
       },
       guchi: { 
         url: 'guchi.glb', 
         type: 'human',
         role: 'xray',
-        // ★追加: IDLEとDRAWINGを追加
-        tasks: ['XRAY', 'SNACK', 'TOILET', 'IDLE', 'DRAWING'],
+        // ★追加: DANCEを追加
+        tasks: ['XRAY', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
         color: 0x2ecc71 
       },
       sq: { 
         url: 'sq.glb', 
         type: 'robot',
         role: 'vacuum',
-        tasks: ['VACUUM', 'CHECK', 'CHECK'], // ロボットはDRAWINGしない想定
+        tasks: ['VACUUM', 'CHECK', 'CHECK'],
         color: 0xe74c3c 
       }
     };
@@ -262,7 +196,6 @@
       el.style.opacity = text ? 1 : 0;
     }
 
-    // ★変更: 吹き出しの高さをユーザー指定の値 (sq:3.2, 人:3.8) に変更
     function updateBubblePos(char) {
       if (!char.userData.bubble || char.userData.bubble.style.opacity == 0) return;
       const offset = char.userData.config.type === 'robot' ? 3.2 : 3.8;
@@ -274,7 +207,6 @@
     }
 
     function getRandomLabPos() {
-        // x: -9~9, z: -6~6
         return new THREE.Vector3(
             (Math.random() - 0.5) * 18, 
             0, 
@@ -305,7 +237,7 @@
       }
 
       const action = ACTIONS[taskKey];
-      // IDLEやCHECKの時はランダム位置へ移動（徘徊）
+      // IDLEやCHECKの時はランダム位置へ移動
       if (taskKey === 'CHECK' || taskKey === 'IDLE') {
           char.userData.targetPos = getRandomLabPos();
       } else {
@@ -321,7 +253,11 @@
         if (!char.userData.mixer || !char.userData.animations) return;
         const current = char.userData.currentAction;
         const action = char.userData.animations[name];
-        if (!action) return;
+        if (!action) {
+            // アニメーションがない場合のフォールバック
+            console.warn(`Animation "${name}" not found for ${char.userData.name}`);
+            return;
+        }
         if (current === action) return;
         if (current) current.fadeOut(0.2);
         action.reset().fadeIn(0.2).play();
@@ -469,45 +405,48 @@
                 while (rotDiff < -Math.PI) rotDiff += Math.PI*2;
                 char.rotation.y += rotDiff * dt * 5.0;
             }
-            } else {
-            // --- 目的地に到着した時の処理 ---
+          } else {
+            // 到着時
             if (ud.state === 'move') {
                 
-                // 仕事リスト (これらは到着後に必ず作業時間をとる)
                 const workTasks = ['WELD', 'XRAY', 'VACUUM', 'SNACK', 'DRAWING'];
                 const isWork = workTasks.includes(ud.actionType);
 
-                // ケース1: トイレ（必ず止まる）
+                // ケース1: トイレ
                 if (ud.actionType === 'TOILET') {
                     ud.state = 'action';
                     ud.timer = 0;
                     if (ud.config.type === 'human') setAction(char, 'idle');
                     updateBubble(char, 'ふぅ...');
                 } 
-                // ケース2: 仕事の場合（必ず止まって1.5秒作業する）
+                // ★追加: ケース2: ダンス
+                else if (ud.actionType === 'DANCE') {
+                    ud.state = 'action';
+                    ud.timer = 0;
+                    // ダンスアニメーション再生！
+                    if (ud.config.type === 'human') setAction(char, 'dance');
+                    updateBubble(char, '♪〜'); 
+                }
+                // ケース3: 仕事
                 else if (isWork) {
                     ud.state = 'action';
                     ud.timer = 0;
                     if (ud.config.type === 'human') setAction(char, 'idle');
-                    // 吹き出しはそのままでOK
                 }
-                // ケース3: ただの徘徊 (IDLE / CHECK)
+                // ケース4: 徘徊
                 else {
-                    // 20%の確率で「休憩」する
                     if (Math.random() < 0.2) {
                         ud.state = 'action';
                         ud.timer = 0;
                         if (ud.config.type === 'human') setAction(char, 'idle');
                         updateBubble(char, ACTIONS.STOP.msg);
                     } 
-                    // 休憩しないなら即次へ
                     else {
                         pickNextAction(char);
                     }
                 }
 
             } else if (ud.state === 'move_wait') {
-                // トイレ待ち列に到着
                 ud.state = 'waiting';
                 if (ud.config.type === 'human') setAction(char, 'idle');
                 updateBubble(char, 'はやく終わらないかな...');
@@ -526,16 +465,16 @@
                 updateBubble(char, 'やっと空いた！');
             }
         }
-　　　　　else if (ud.state === 'action') {
+        else if (ud.state === 'action') {
           ud.timer += dt;
           
-          // 行動によって立ち止まる時間を変える
-          let duration = 5.0; // デフォルト（トイレや休憩など）は5秒
+          let duration = 5.0; 
 
-          // パソコン、溶接、X線、お菓子 は「1.5秒」に変更
-          if (['DRAWING', 'WELD', 'XRAY', 'SNACK'].includes(ud.actionType)) {
+          // 仕事は1.5秒
+          if (['DRAWING', 'WELD', 'XRAY', 'SNACK', 'VACUUM'].includes(ud.actionType)) {
               duration = 1.5;
           }
+          // ダンスはデフォルトの5秒でたっぷり踊ります
 
           if (ud.timer > duration) {
               if (ud.actionType === 'TOILET' && toiletUser === char) {
@@ -543,7 +482,7 @@
               }
               pickNextAction(char);
           }
-        }
+        } 
         else if (ud.state === 'speaking') {
              ud.timer += dt;
              if (ud.config.type === 'human') setAction(char, 'idle');
@@ -611,7 +550,7 @@
         updateBubble(responder, data.reply.substring(0, 10) + '...');
         
       } catch(err) {
-        addMsg('（通信エラー ガガッ）', 'bot');
+        addMsg('（通信エラーかも）', 'bot');
         updateBubble(responder, 'エラー...');
       } finally {
         input.disabled = false;
@@ -619,5 +558,3 @@
       }
     });
   </script>
-</body>
-</html>
