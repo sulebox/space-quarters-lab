@@ -244,9 +244,11 @@
       el.style.opacity = text ? 1 : 0;
     }
 
+    // ★変更1: 吹き出しの位置を高く調整
     function updateBubblePos(char) {
       if (!char.userData.bubble || char.userData.bubble.style.opacity == 0) return;
-      const offset = char.userData.config.type === 'robot' ? 1.5 : 1.8; // バブル位置も少し下げ
+      // ロボット2.2m, 人間2.5m上空に表示 (キャラに被らない高さ)
+      const offset = char.userData.config.type === 'robot' ? 2.2 : 2.5;
       const pos = char.position.clone().add(new THREE.Vector3(0, offset, 0)).project(camera);
       const x = (pos.x * .5 + .5) * window.innerWidth;
       const y = (-(pos.y * .5) + .5) * window.innerHeight;
@@ -254,15 +256,20 @@
       char.userData.bubble.style.top = `${y}px`;
     }
 
+    // ★変更2: ランダム移動の範囲を壁の内側に限定
     function getRandomLabPos() {
-        return new THREE.Vector3((Math.random() - 0.5) * 18, 0, (Math.random() - 0.5) * 12 - 2);
+        // x: -9~9, z: -6~6 (壁際に行き過ぎない範囲)
+        return new THREE.Vector3(
+            (Math.random() - 0.5) * 18, 
+            0, 
+            (Math.random() - 0.5) * 12
+        );
     }
 
     function pickNextAction(char) {
       const conf = CHAR_CONFIG[char.userData.name];
       const taskKey = conf.tasks[Math.floor(Math.random() * conf.tasks.length)];
       
-      // トイレロジック
       if (taskKey === 'TOILET') {
           if (!toiletUser && toiletQueue.length === 0) {
               toiletUser = char;
@@ -309,16 +316,11 @@
       try {
         const gltf = await gltfLoader.loadAsync(conf.url);
 
-        // --- Fix 2: アニメーションから「位置移動」を削除 ---
-        // これにより、キャラがアニメーションで勝手に前に進まず、
-        // 「その場で足踏み」するようになります。
         if (gltf.animations) {
             gltf.animations.forEach(clip => {
-                // positionトラック（移動）を除外するフィルタリング
                 clip.tracks = clip.tracks.filter(track => !track.name.endsWith('.position'));
             });
         }
-        // ------------------------------------------------
 
         const model = gltf.scene;
         model.traverse(o => {
@@ -328,17 +330,15 @@
             }
         });
 
-        // --- Fix 1: サイズの縮小調整 ---
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         let scale = 1;
         
-        // 1.8m -> 1.1m 程度に小さく設定
+        // 0.6サイズ設定
         if (conf.type === 'human') scale = 0.6 / size.y; 
         else scale = 1.2 / size.y; 
         
         model.scale.setScalar(scale);
-        // -----------------------------
 
         let mixer = null;
         let animations = {};
@@ -382,6 +382,13 @@
     await loadCharacter('sq');
 
     const clock = new THREE.Clock();
+    
+    // ラボの境界（この範囲外に出ないようにする）
+    const BOUNDS = {
+        xMin: -11.5, xMax: 11.5,
+        zMin: -7.5, zMax: 12.0
+    };
+
     function animate() {
       requestAnimationFrame(animate);
       const dt = clock.getDelta();
@@ -399,7 +406,7 @@
                   if (i === j) continue;
                   const other = charArray[j];
                   const dist = char.position.distanceTo(other.position);
-                  const minDist = 0.8; // 判定距離も少し小さく
+                  const minDist = 0.8; 
                   if (dist < minDist) {
                       const push = char.position.clone().sub(other.position).normalize();
                       push.divideScalar(dist);
@@ -412,6 +419,10 @@
                   char.position.add(separation);
               }
           }
+          
+          // ★変更3: 壁抜け防止 (Clamp)
+          char.position.x = Math.max(BOUNDS.xMin, Math.min(BOUNDS.xMax, char.position.x));
+          char.position.z = Math.max(BOUNDS.zMin, Math.min(BOUNDS.zMax, char.position.z));
       }
 
       charArray.forEach(char => {
