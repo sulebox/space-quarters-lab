@@ -113,6 +113,7 @@
     dirLight.position.set(10, 20, 10);
     dirLight.castShadow = true;
     
+    // 影の範囲設定
     const d = 20; 
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
@@ -291,9 +292,25 @@
         );
     }
 
+    // ★変更: 同じ行動が連続しないように修正
     function pickNextAction(char) {
       const conf = CHAR_CONFIG[char.userData.name];
-      const taskKey = conf.tasks[Math.floor(Math.random() * conf.tasks.length)];
+      
+      // 候補リストを作成
+      let candidates = conf.tasks;
+      
+      // 前回の行動があれば、それを候補から除外
+      if (char.userData.lastAction) {
+          candidates = candidates.filter(task => task !== char.userData.lastAction);
+          // 万が一候補がなくなったら元のリストを使う
+          if (candidates.length === 0) candidates = conf.tasks;
+      }
+
+      // 候補からランダムに選択
+      const taskKey = candidates[Math.floor(Math.random() * candidates.length)];
+      
+      // 今回の行動を「前回」として保存
+      char.userData.lastAction = taskKey;
       
       if (taskKey === 'TOILET') {
           if (!toiletUser && toiletQueue.length === 0) {
@@ -388,6 +405,7 @@
             mixer: mixer,
             animations: animations,
             currentAction: null,
+            lastAction: null, // 前回行動の記憶用
             velocity: new THREE.Vector3()
         };
         
@@ -503,10 +521,9 @@
                     ud.state = 'action';
                     ud.timer = 0;
                     if (ud.config.type === 'human') {
-                        // ★変更: アクションに応じてアニメーション分岐
                         if (ud.actionType === 'DRAWING') setAction(char, 'typing');
-                        else if (ud.actionType === 'WELD') setAction(char, 'weld'); // 溶接
-                        else if (ud.actionType === 'XRAY') setAction(char, 'xsen'); // X線
+                        else if (ud.actionType === 'WELD') setAction(char, 'weld'); 
+                        else if (ud.actionType === 'XRAY') setAction(char, 'xsen'); 
                         else setAction(char, 'idle');
                     }
                 }
@@ -544,9 +561,8 @@
         else if (ud.state === 'action') {
           ud.timer += dt;
           
-          let duration = 5.0; // デフォルト5秒 (溶接、X線、図面も含む)
+          let duration = 5.0; 
 
-          // ★変更: SNACK と VACUUM だけ短時間 (1.5秒)
           if (['SNACK', 'VACUUM'].includes(ud.actionType)) {
               duration = 1.5;
           }
