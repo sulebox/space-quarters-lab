@@ -644,7 +644,7 @@
         updateBubble(responder, data.reply.substring(0, 10) + '...');
         
       } catch(err) {
-        addMsg('（通信エラー ガガッ）', 'bot');
+        addMsg('（通信エラーかも）', 'bot');
         updateBubble(responder, 'エラー...');
       } finally {
         input.disabled = false;
