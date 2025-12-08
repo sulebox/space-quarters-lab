@@ -231,22 +231,20 @@
       IDLE:  { msg: 'ちょっと考えごと' }, 
       STOP:  { msg: 'ちょっとつかれた' },
       CHECK: { msg: '周囲をチェック中...ブイン' },
-      
-      // ★追加: Onishi専用アクション
       PRESIDENT: { msg: '社長しよっと' },
-      PATROL:    { msg: 'みんな仕事してるかな' },
+      // ★変更: 文言を修正
+      PATROL:    { msg: 'みんなお仕事してるかな' },
       SWIM:      { msg: '泳ごっと' }
     };
 
     // キャラ設定
-    // ★targetHeightを追加して個別にサイズ調整
     const CHAR_CONFIG = {
       zawa: { 
         url: 'zawa.glb', 
         type: 'human',
         role: 'welding',
         tasks: ['WELD', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
-        targetHeight: 0.6, // 標準サイズ
+        targetHeight: 0.6, 
         color: 0x3498db 
       },
       guchi: { 
@@ -254,7 +252,7 @@
         type: 'human',
         role: 'xray',
         tasks: ['XRAY', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
-        targetHeight: 0.6, // 標準サイズ
+        targetHeight: 0.6,
         color: 0x2ecc71 
       },
       sq: { 
@@ -269,9 +267,9 @@
         url: 'Onishi.glb',
         type: 'human',
         role: 'president',
-        // 共通アクション(IDLE,TOILET,SNACK) + 専用アクション
-        tasks: ['IDLE', 'TOILET', 'SNACK', 'PRESIDENT', 'PATROL', 'SWIM'],
-        targetHeight: 1.1, // ★Onishiは少し大きく設定 (モデル差の吸収用)
+        // ★変更: DANCEを追加
+        tasks: ['IDLE', 'TOILET', 'SNACK', 'PRESIDENT', 'PATROL', 'SWIM', 'DANCE'],
+        targetHeight: 0.75, 
         color: 0x333333 
       }
     };
@@ -343,11 +341,14 @@
       
       if (taskKey === 'DANCE') {
           const basePos = action.pos.clone();
-          if (char.userData.name === 'zawa') basePos.x += 1.0; 
-          else if (char.userData.name === 'guchi') basePos.x -= 1.0;
+          // ★変更: 3人が並べるように位置を調整
+          // onishiは中央(0)、zawaは右(+1.2)、guchiは左(-1.2)
+          if (char.userData.name === 'zawa') basePos.x += 1.2; 
+          else if (char.userData.name === 'guchi') basePos.x -= 1.2;
+          // onishi はそのまま (中央)
+          
           char.userData.targetPos = basePos;
       }
-      // ランダム移動グループ
       else if (['IDLE', 'CHECK', 'PRESIDENT', 'PATROL', 'SWIM'].includes(taskKey)) {
           char.userData.targetPos = getRandomLabPos();
       } 
@@ -364,11 +365,7 @@
         if (!char.userData.mixer || !char.userData.animations) return;
         const current = char.userData.currentAction;
         const action = char.userData.animations[name];
-        if (!action) {
-            // アニメーションがない場合（SWIMなど）はフォールバックしない（棒立ちになるよりはマシ）
-            // console.warn(`Animation "${name}" not found`);
-            return;
-        }
+        if (!action) return;
         if (current === action) return;
         if (current) current.fadeOut(0.2);
         action.reset().fadeIn(0.2).play();
@@ -397,8 +394,7 @@
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         
-        // ★変更: targetHeight を使ってスケール計算
-        const targetH = conf.targetHeight || 0.6; // 設定がなければ0.6
+        const targetH = conf.targetHeight || 0.6;
         const scale = targetH / size.y;
         model.scale.setScalar(scale);
 
@@ -443,7 +439,7 @@
     await loadCharacter('zawa');
     await loadCharacter('guchi');
     await loadCharacter('sq');
-    await loadCharacter('onishi'); // Onishi追加
+    await loadCharacter('onishi');
 
     const clock = new THREE.Clock();
     
@@ -502,7 +498,6 @@
         if (ud.state === 'move' || ud.state === 'move_wait') {
           
           if (ud.config.type === 'human') {
-              // ★変更: OnishiのSWIMアクション対応
               if (ud.actionType === 'SWIM') {
                   setAction(char, 'swim');
               } else {
@@ -554,7 +549,6 @@
                     }
                 }
                 else {
-                    // IDLE, PRESIDENT, PATROL, SWIM などの移動後
                     if (Math.random() < 0.2) {
                         ud.state = 'action';
                         ud.timer = 0;
@@ -650,7 +644,6 @@
       let responderKey = 'sq'; 
       if (txt.includes('溶接') && !txt.includes('Space Quarters')) responderKey = 'zawa';
       else if (txt.includes('X線') || txt.includes('レントゲン')) responderKey = 'guchi';
-      // 社長対応
       else if (txt.includes('社長') || txt.includes('経営')) responderKey = 'onishi';
       
       const responder = chars[responderKey];
