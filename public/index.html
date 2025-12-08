@@ -188,7 +188,7 @@
     box1.position.set(-0.5, 1.4, 2); scene.add(box1);
     const SNACK_POS = new THREE.Vector3(0, 0, 4);
 
-    // Dance Spot (Center)
+    // Dance Spot
     const DANCE_POS = new THREE.Vector3(-3.5, 0, 4.0);
 
     // 5. Toilet
@@ -230,7 +230,12 @@
       DANCE: { pos: DANCE_POS, msg: 'ダンスしよっと' },
       IDLE:  { msg: 'ちょっと考えごと' }, 
       STOP:  { msg: 'ちょっとつかれた' },
-      CHECK: { msg: '周囲をチェック中...ブイン' } 
+      CHECK: { msg: '周囲をチェック中...ブイン' },
+      
+      // ★追加: Onishi専用アクション
+      PRESIDENT: { msg: '社長しよっと' },
+      PATROL:    { msg: 'みんな仕事してるかな' },
+      SWIM:      { msg: '泳ごっと' }
     };
 
     // キャラ設定
@@ -255,6 +260,15 @@
         role: 'vacuum',
         tasks: ['VACUUM', 'CHECK', 'CHECK'], 
         color: 0xe74c3c 
+      },
+      // ★追加: Onishi設定
+      onishi: {
+        url: 'Onishi.glb',
+        type: 'human',
+        role: 'president',
+        // 共通アクション + 専用アクション
+        tasks: ['IDLE', 'TOILET', 'SNACK', 'PRESIDENT', 'PATROL', 'SWIM'],
+        color: 0x333333 // 黒系スーツイメージ
       }
     };
 
@@ -323,20 +337,16 @@
 
       const action = ACTIONS[taskKey];
       
-      // ★変更: ダンスの時は位置をずらす
       if (taskKey === 'DANCE') {
           const basePos = action.pos.clone();
-          // zawaは右へ、guchiは左へ少しずれる
           if (char.userData.name === 'zawa') basePos.x += 1.0; 
           else if (char.userData.name === 'guchi') basePos.x -= 1.0;
-          
           char.userData.targetPos = basePos;
       }
-      // IDLE/CHECKはランダム
-      else if (taskKey === 'CHECK' || taskKey === 'IDLE') {
+      // ランダム移動グループ (IDLE, CHECK, PRESIDENT, PATROL, SWIM)
+      else if (['IDLE', 'CHECK', 'PRESIDENT', 'PATROL', 'SWIM'].includes(taskKey)) {
           char.userData.targetPos = getRandomLabPos();
       } 
-      // それ以外は通常（少しランダム）
       else {
           char.userData.targetPos = action.pos.clone().add(new THREE.Vector3((Math.random()-0.5), 0, (Math.random()-0.5)));
       }
@@ -351,7 +361,7 @@
         const current = char.userData.currentAction;
         const action = char.userData.animations[name];
         if (!action) {
-            console.warn(`Animation "${name}" not found for ${char.userData.name}`);
+            // アニメーションがない場合（例: swimがないキャラ）はwalkなどで代用
             return;
         }
         if (current === action) return;
@@ -426,9 +436,11 @@
       }
     }
 
+    // ★追加: Onishiもロード
     await loadCharacter('zawa');
     await loadCharacter('guchi');
     await loadCharacter('sq');
+    await loadCharacter('onishi');
 
     const clock = new THREE.Clock();
     
@@ -485,7 +497,16 @@
 
         // 状態ロジック
         if (ud.state === 'move' || ud.state === 'move_wait') {
-          if (ud.config.type === 'human') setAction(char, 'walk');
+          
+          if (ud.config.type === 'human') {
+              // ★変更: 移動中のアニメーション分岐
+              // SWIMアクションなら "swim"、それ以外は "walk"
+              if (ud.actionType === 'SWIM') {
+                  setAction(char, 'swim');
+              } else {
+                  setAction(char, 'walk');
+              }
+          }
 
           const dir = ud.targetPos.clone().sub(char.position);
           dir.y = 0;
@@ -531,6 +552,7 @@
                     }
                 }
                 else {
+                    // IDLE, PRESIDENT, PATROL, SWIM などの移動後
                     if (Math.random() < 0.2) {
                         ud.state = 'action';
                         ud.timer = 0;
@@ -626,11 +648,14 @@
       let responderKey = 'sq'; 
       if (txt.includes('溶接') && !txt.includes('Space Quarters')) responderKey = 'zawa';
       else if (txt.includes('X線') || txt.includes('レントゲン')) responderKey = 'guchi';
+      // 社長も反応させたい場合はここに追加可能 (例: else if (txt.includes('社長')) responderKey = 'onishi';)
       
       const responder = chars[responderKey];
-      responder.userData.state = 'speaking';
-      responder.userData.timer = 0;
-      updateBubble(responder, 'ブイン...');
+      if (responder) {
+          responder.userData.state = 'speaking';
+          responder.userData.timer = 0;
+          updateBubble(responder, 'ブイン...');
+      }
 
       try {
         const res = await fetch('/api/chat', {
@@ -641,11 +666,11 @@
         const data = await res.json();
         
         addMsg(data.reply, 'bot', responderKey.toUpperCase());
-        updateBubble(responder, data.reply.substring(0, 10) + '...');
+        if (responder) updateBubble(responder, data.reply.substring(0, 10) + '...');
         
       } catch(err) {
         addMsg('（通信エラーかも）', 'bot');
-        updateBubble(responder, 'エラー...');
+        if (responder) updateBubble(responder, 'エラー...');
       } finally {
         input.disabled = false;
         input.focus();
