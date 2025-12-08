@@ -239,12 +239,14 @@
     };
 
     // キャラ設定
+    // ★targetHeightを追加して個別にサイズ調整
     const CHAR_CONFIG = {
       zawa: { 
         url: 'zawa.glb', 
         type: 'human',
         role: 'welding',
         tasks: ['WELD', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
+        targetHeight: 0.6, // 標準サイズ
         color: 0x3498db 
       },
       guchi: { 
@@ -252,6 +254,7 @@
         type: 'human',
         role: 'xray',
         tasks: ['XRAY', 'SNACK', 'TOILET', 'IDLE', 'DRAWING', 'DANCE'],
+        targetHeight: 0.6, // 標準サイズ
         color: 0x2ecc71 
       },
       sq: { 
@@ -259,16 +262,17 @@
         type: 'robot',
         role: 'vacuum',
         tasks: ['VACUUM', 'CHECK', 'CHECK'], 
+        targetHeight: 1.2,
         color: 0xe74c3c 
       },
-      // ★追加: Onishi設定
       onishi: {
         url: 'Onishi.glb',
         type: 'human',
         role: 'president',
-        // 共通アクション + 専用アクション
+        // 共通アクション(IDLE,TOILET,SNACK) + 専用アクション
         tasks: ['IDLE', 'TOILET', 'SNACK', 'PRESIDENT', 'PATROL', 'SWIM'],
-        color: 0x333333 // 黒系スーツイメージ
+        targetHeight: 0.75, // ★Onishiは少し大きく設定 (モデル差の吸収用)
+        color: 0x333333 
       }
     };
 
@@ -343,7 +347,7 @@
           else if (char.userData.name === 'guchi') basePos.x -= 1.0;
           char.userData.targetPos = basePos;
       }
-      // ランダム移動グループ (IDLE, CHECK, PRESIDENT, PATROL, SWIM)
+      // ランダム移動グループ
       else if (['IDLE', 'CHECK', 'PRESIDENT', 'PATROL', 'SWIM'].includes(taskKey)) {
           char.userData.targetPos = getRandomLabPos();
       } 
@@ -361,7 +365,8 @@
         const current = char.userData.currentAction;
         const action = char.userData.animations[name];
         if (!action) {
-            // アニメーションがない場合（例: swimがないキャラ）はwalkなどで代用
+            // アニメーションがない場合（SWIMなど）はフォールバックしない（棒立ちになるよりはマシ）
+            // console.warn(`Animation "${name}" not found`);
             return;
         }
         if (current === action) return;
@@ -391,11 +396,10 @@
 
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
-        let scale = 1;
         
-        if (conf.type === 'human') scale = 0.6 / size.y; 
-        else scale = 1.2 / size.y; 
-        
+        // ★変更: targetHeight を使ってスケール計算
+        const targetH = conf.targetHeight || 0.6; // 設定がなければ0.6
+        const scale = targetH / size.y;
         model.scale.setScalar(scale);
 
         let mixer = null;
@@ -436,11 +440,10 @@
       }
     }
 
-    // ★追加: Onishiもロード
     await loadCharacter('zawa');
     await loadCharacter('guchi');
     await loadCharacter('sq');
-    await loadCharacter('onishi');
+    await loadCharacter('onishi'); // Onishi追加
 
     const clock = new THREE.Clock();
     
@@ -499,8 +502,7 @@
         if (ud.state === 'move' || ud.state === 'move_wait') {
           
           if (ud.config.type === 'human') {
-              // ★変更: 移動中のアニメーション分岐
-              // SWIMアクションなら "swim"、それ以外は "walk"
+              // ★変更: OnishiのSWIMアクション対応
               if (ud.actionType === 'SWIM') {
                   setAction(char, 'swim');
               } else {
@@ -648,7 +650,8 @@
       let responderKey = 'sq'; 
       if (txt.includes('溶接') && !txt.includes('Space Quarters')) responderKey = 'zawa';
       else if (txt.includes('X線') || txt.includes('レントゲン')) responderKey = 'guchi';
-      // 社長も反応させたい場合はここに追加可能 (例: else if (txt.includes('社長')) responderKey = 'onishi';)
+      // 社長対応
+      else if (txt.includes('社長') || txt.includes('経営')) responderKey = 'onishi';
       
       const responder = chars[responderKey];
       if (responder) {
