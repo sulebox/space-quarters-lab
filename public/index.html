@@ -570,7 +570,7 @@
                         // ★追加: 筋トレアクション
                         else if (ud.actionType === 'WORKOUT') {
                             setAction(char, 'kintore');
-                            char.position.y = -0.15; // ここで少し体を埋める
+                            char.position.y = -0.3; // ここで少し体を埋める
                         }
                         else setAction(char, 'idle');
                     }
@@ -693,7 +693,7 @@
         if (responder) updateBubble(responder, data.reply.substring(0, 10) + '...');
         
       } catch(err) {
-        addMsg('（通信エラー ガガッ）', 'bot');
+        addMsg('（通信エラーかも）', 'bot');
         if (responder) updateBubble(responder, 'エラー...');
       } finally {
         input.disabled = false;
