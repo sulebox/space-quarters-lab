@@ -133,6 +133,8 @@
     const matMetal = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.7, roughness: 0.2 });
     const matDark = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.6 }); 
     const matGlass = new THREE.MeshPhysicalMaterial({ color: 0xaaccff, transmission: 0.9, opacity: 0.5, transparent: true, roughness: 0.1 });
+    // ★追加: マットのマテリアル (青っぽい色)
+    const matMat = new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.9 });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), matFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -188,8 +190,16 @@
     box1.position.set(-0.5, 1.4, 2); scene.add(box1);
     const SNACK_POS = new THREE.Vector3(0, 0, 4);
 
-    // Dance Spot
+    // Dance Spot (Center)
     const DANCE_POS = new THREE.Vector3(-3.5, 0, 4.0);
+
+    // ★追加: Workout Mat (ダンス場の左下)
+    // お菓子机(0,0,4)の左(-x)手前(+z)あたり
+    const matMesh = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.05, 2.0), matMat);
+    matMesh.position.set(-5.5, 0.025, 7.0); // 床に敷く
+    matMesh.receiveShadow = true;
+    scene.add(matMesh);
+    const WORKOUT_POS = new THREE.Vector3(-5.5, 0, 7.0);
 
     // 5. Toilet
     const toiletWall = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 0.2), matWall);
@@ -232,9 +242,10 @@
       STOP:  { msg: 'ちょっとつかれた' },
       CHECK: { msg: '周囲をチェック中...ブイン' },
       PRESIDENT: { msg: '社長しよっと' },
-      // ★変更: 文言を修正
       PATROL:    { msg: 'みんなお仕事してるかな' },
-      SWIM:      { msg: '泳ごっと' }
+      SWIM:      { msg: '泳ごっと' },
+      // ★追加: 筋トレアクション
+      WORKOUT:   { pos: WORKOUT_POS, msg: '筋トレしよっと' }
     };
 
     // キャラ設定
@@ -267,10 +278,19 @@
         url: 'Onishi.glb',
         type: 'human',
         role: 'president',
-        // ★変更: DANCEを追加
         tasks: ['IDLE', 'TOILET', 'SNACK', 'PRESIDENT', 'PATROL', 'SWIM', 'DANCE'],
-        targetHeight: 1.1, 
+        targetHeight: 0.75, 
         color: 0x333333 
+      },
+      // ★追加: Kyon設定
+      kyon: {
+        url: 'Kyon.glb',
+        type: 'human',
+        role: 'workout',
+        // 共通アクション + 筋トレ
+        tasks: ['IDLE', 'TOILET', 'SNACK', 'DANCE', 'WORKOUT'],
+        targetHeight: 0.6, // 他の人と同じくらい
+        color: 0xe67e22
       }
     };
 
@@ -341,11 +361,11 @@
       
       if (taskKey === 'DANCE') {
           const basePos = action.pos.clone();
-          // ★変更: 3人が並べるように位置を調整
-          // onishiは中央(0)、zawaは右(+1.2)、guchiは左(-1.2)
+          // ★変更: 4人が重ならないように調整
           if (char.userData.name === 'zawa') basePos.x += 1.2; 
           else if (char.userData.name === 'guchi') basePos.x -= 1.2;
-          // onishi はそのまま (中央)
+          // onishiは中央
+          else if (char.userData.name === 'kyon') basePos.z += 1.2; // kyonは少し手前で踊る
           
           char.userData.targetPos = basePos;
       }
@@ -440,6 +460,7 @@
     await loadCharacter('guchi');
     await loadCharacter('sq');
     await loadCharacter('onishi');
+    await loadCharacter('kyon'); // Kyon追加
 
     const clock = new THREE.Clock();
     
@@ -523,7 +544,7 @@
             // 到着時
             if (ud.state === 'move') {
                 
-                const workTasks = ['WELD', 'XRAY', 'VACUUM', 'SNACK', 'DRAWING'];
+                const workTasks = ['WELD', 'XRAY', 'VACUUM', 'SNACK', 'DRAWING', 'WORKOUT'];
                 const isWork = workTasks.includes(ud.actionType);
 
                 if (ud.actionType === 'TOILET') {
@@ -545,6 +566,8 @@
                         if (ud.actionType === 'DRAWING') setAction(char, 'typing');
                         else if (ud.actionType === 'WELD') setAction(char, 'weld'); 
                         else if (ud.actionType === 'XRAY') setAction(char, 'xsen'); 
+                        // ★追加: 筋トレアクション
+                        else if (ud.actionType === 'WORKOUT') setAction(char, 'kintore'); 
                         else setAction(char, 'idle');
                     }
                 }
@@ -645,6 +668,7 @@
       if (txt.includes('溶接') && !txt.includes('Space Quarters')) responderKey = 'zawa';
       else if (txt.includes('X線') || txt.includes('レントゲン')) responderKey = 'guchi';
       else if (txt.includes('社長') || txt.includes('経営')) responderKey = 'onishi';
+      else if (txt.includes('筋トレ') || txt.includes('筋肉')) responderKey = 'kyon'; // Kyonも反応可能に
       
       const responder = chars[responderKey];
       if (responder) {
@@ -665,7 +689,7 @@
         if (responder) updateBubble(responder, data.reply.substring(0, 10) + '...');
         
       } catch(err) {
-        addMsg('（通信エラーかも）', 'bot');
+        addMsg('（通信エラー ガガッ）', 'bot');
         if (responder) updateBubble(responder, 'エラー...');
       } finally {
         input.disabled = false;
