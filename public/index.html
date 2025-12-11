@@ -195,7 +195,7 @@
 
     // ★追加: Workout Mat (ダンス場の左下)
     // お菓子机(0,0,4)の左(-x)手前(+z)あたり
-    const matMesh = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.05, 2.0), matMat);
+    const matMesh = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 3.0), matMat);
     matMesh.position.set(-5.5, 0.025, 7.0); // 床に敷く
     matMesh.receiveShadow = true;
     scene.add(matMesh);
@@ -328,6 +328,7 @@
     }
 
     function pickNextAction(char) {
+      char.position.y = 0;
       const conf = CHAR_CONFIG[char.userData.name];
       
       let candidates = conf.tasks;
@@ -567,7 +568,10 @@
                         else if (ud.actionType === 'WELD') setAction(char, 'weld'); 
                         else if (ud.actionType === 'XRAY') setAction(char, 'xsen'); 
                         // ★追加: 筋トレアクション
-                        else if (ud.actionType === 'WORKOUT') setAction(char, 'kintore'); 
+                        else if (ud.actionType === 'WORKOUT') {
+                            setAction(char, 'kintore');
+                            char.position.y = -0.15; // ここで少し体を埋める
+                        }
                         else setAction(char, 'idle');
                     }
                 }
