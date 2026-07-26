@@ -72,14 +72,15 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { createLabEnvironment } from './environment.js';
 
     // ---- Setup ----
     const $ = (id) => document.getElementById(id);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xc0c6c8); 
+    scene.background = new THREE.Color(0x151a20);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
@@ -104,13 +105,13 @@
     updateCamera();
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+    const ambientLight = new THREE.AmbientLight(0xc9d3d7, 0.48);
     scene.add(ambientLight);
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); 
+    const hemiLight = new THREE.HemisphereLight(0xd9eff5, 0x303438, 0.72);
     scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.1); 
-    dirLight.position.set(10, 20, 10);
+    const dirLight = new THREE.DirectionalLight(0xfff1dc, 1.35);
+    dirLight.position.set(8, 18, 12);
     dirLight.castShadow = true;
     
     const d = 20; 
@@ -119,107 +120,25 @@
     dirLight.shadow.camera.top = d;
     dirLight.shadow.camera.bottom = -d;
 
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.bias = -0.0008;
     scene.add(dirLight);
 
-    const spot = new THREE.SpotLight(0x3498db, 5, 20, 0.5, 0.5, 1);
-    spot.position.set(-6, 8, -2);
-    scene.add(spot);
-
     // ---- Lab Environment ----
-    const matFloor = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.7 });
-    const matWall = new THREE.MeshStandardMaterial({ color: 0xecf0f1, roughness: 0.5 }); 
-    const matMetal = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.7, roughness: 0.2 });
-    const matDark = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.6 }); 
-    const matGlass = new THREE.MeshPhysicalMaterial({ color: 0xaaccff, transmission: 0.9, opacity: 0.5, transparent: true, roughness: 0.1 });
-    // ★追加: マットのマテリアル (青っぽい色)
-    const matMat = new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.9 });
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), matFloor);
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(24, 6, 0.5), matWall);
-    wallBack.position.set(0, 3, -8);
-    wallBack.receiveShadow = true;
-    scene.add(wallBack);
-    
-    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 6, 16), matWall);
-    wallLeft.position.set(-12, 3, 0);
-    wallLeft.receiveShadow = true;
-    scene.add(wallLeft);
-
-    // 1. Welding Station
-    const weldTable = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 2.5), matMetal);
-    weldTable.position.set(-8, 0.75, -2);
-    weldTable.castShadow = true;
-    scene.add(weldTable);
-    const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.5), new THREE.MeshStandardMaterial({color:0xe67e22, roughness:0.4}));
-    armBase.position.set(-8, 1.75, -2);
-    scene.add(armBase);
     const WELDING_POS = new THREE.Vector3(-6.5, 0, -2);
-
-    // 2. X-ray Station
-    const xrayMachine = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 4, 32), matMetal);
-    xrayMachine.rotation.z = Math.PI / 2;
-    xrayMachine.position.set(8, 2.2, -2);
-    xrayMachine.castShadow = true;
-    scene.add(xrayMachine);
-    const xrayBed = new THREE.Mesh(new THREE.BoxGeometry(5, 0.2, 1.5), matDark);
-    xrayBed.position.set(8, 1.5, -2);
-    scene.add(xrayBed);
     const XRAY_POS = new THREE.Vector3(5, 0, -2);
-
-    // 3. Vacuum Chamber
-    const vacuumChamber = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), new THREE.MeshStandardMaterial({color:0x95a5a6, metalness:0.8, roughness:0.1}));
-    vacuumChamber.position.set(0, 1.8, -6);
-    scene.add(vacuumChamber);
-    const vacuumBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 1.8), matDark);
-    vacuumBase.position.set(0, 0.9, -6);
-    scene.add(vacuumBase);
     const VACUUM_POS = new THREE.Vector3(0, 0, -3.5);
-
-    // 4. Snack Table
-    const table = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 2), new THREE.MeshStandardMaterial({color:0xe67e22, roughness:0.5}));
-    table.position.set(0, 0.6, 2);
-    table.castShadow = true;
-    scene.add(table);
-    const box1 = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.4,0.6), new THREE.MeshStandardMaterial({color:0xf1c40f, roughness:0.5}));
-    box1.position.set(-0.5, 1.4, 2); scene.add(box1);
     const SNACK_POS = new THREE.Vector3(0, 0, 4);
 
     // Dance Spot (Center)
     const DANCE_POS = new THREE.Vector3(-3.5, 0, 4.0);
 
-    // ★追加: Workout Mat (ダンス場の左下)
-    // お菓子机(0,0,4)の左(-x)手前(+z)あたり
-    const matMesh = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 3.0), matMat);
-    matMesh.position.set(-5.5, 0.025, 7.0); // 床に敷く
-    matMesh.receiveShadow = true;
-    scene.add(matMesh);
     const WORKOUT_POS = new THREE.Vector3(-5.5, 0, 7.0);
-
-    // 5. Toilet
-    const toiletWall = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 0.2), matWall);
-    toiletWall.position.set(10.5, 2.5, 5);
-    scene.add(toiletWall);
-    const toiletDoor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 5, 3), matGlass);
-    toiletDoor.position.set(9, 2.5, 6.5);
-    scene.add(toiletDoor);
     const TOILET_POS = new THREE.Vector3(10, 0, 7);
-
-    // 6. Computer Station
-    const pcDesk = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.2, 1.5), matMetal);
-    pcDesk.position.set(-11, 0.6, 6);
-    pcDesk.castShadow = true;
-    scene.add(pcDesk);
-    const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), matDark);
-    monitor.position.set(-11, 1.5, 6);
-    monitor.rotation.y = Math.PI / 2;
-    scene.add(monitor);
     const PC_POS = new THREE.Vector3(-10, 0, 6);
+
+    createLabEnvironment(scene);
 
     // ---- Character Logic ----
     const gltfLoader = new GLTFLoader();
