@@ -73,6 +73,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { createLabEnvironment } from './environment.js';
+    import { createToiletQueue } from './toiletQueue.js';
 
     // ---- Setup ----
     const $ = (id) => document.getElementById(id);
@@ -213,8 +214,15 @@
       }
     };
 
-    const toiletQueue = [];
-    let toiletUser = null;
+    const toilet = createToiletQueue({
+      usePosition: TOILET_POS,
+      entryPosition: new THREE.Vector3(8.0, 0, 7.3),
+      exitPosition: new THREE.Vector3(7.2, 0, 7.8),
+      waitPosition: new THREE.Vector3(7.0, 0, 6.7),
+      spacing: 1.3,
+      onMessage: updateBubble,
+      onIdle: (char) => setAction(char, 'idle'),
+    });
 
     function updateBubble(char, text) {
       if (!char.userData.bubble) {
@@ -247,6 +255,7 @@
     }
 
     function pickNextAction(char) {
+      toilet.cancel(char);
       char.position.y = 0;
       const conf = CHAR_CONFIG[char.userData.name];
       
@@ -260,20 +269,7 @@
       char.userData.lastAction = taskKey;
       
       if (taskKey === 'TOILET') {
-          if (!toiletUser && toiletQueue.length === 0) {
-              toiletUser = char;
-              char.userData.targetPos = ACTIONS.TOILET.pos.clone();
-              char.userData.state = 'move';
-              char.userData.actionType = 'TOILET'; 
-              updateBubble(char, 'トイレ行こっと');
-          } else {
-              toiletQueue.push(char);
-              const waitOffset = toiletQueue.length * 1.0; 
-              char.userData.targetPos = ACTIONS.TOILET.pos.clone().add(new THREE.Vector3(-waitOffset, 0, 0));
-              char.userData.state = 'move_wait'; 
-              char.userData.actionType = 'TOILET_WAIT';
-              updateBubble(char, 'トイレ空くの待ってる...');
-          }
+          toilet.request(char);
           return;
       }
 
@@ -391,8 +387,10 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      const dt = clock.getDelta();
+      const dt = Math.min(clock.getDelta(), 0.1);
       const time = clock.elapsedTime;
+
+      toilet.update();
 
       // 衝突回避
       const charArray = Object.values(chars);
@@ -408,8 +406,11 @@
                   const dist = char.position.distanceTo(other.position);
                   const minDist = 0.8; 
                   if (dist < minDist) {
-                      const push = char.position.clone().sub(other.position).normalize();
-                      push.divideScalar(dist);
+                      // Coincident positions must not produce NaN or an unbounded push.
+                      const push = dist > 0.0001
+                          ? char.position.clone().sub(other.position).normalize()
+                          : new THREE.Vector3(i < j ? -1 : 1, 0, 0);
+                      push.divideScalar(Math.max(dist, 0.2));
                       separation.add(push);
                       count++;
                   }
@@ -452,7 +453,7 @@
           
           if (dist > 0.1) {
             dir.normalize();
-            char.position.add(dir.multiplyScalar(dt * 1.5));
+            char.position.add(dir.multiplyScalar(Math.min(dt * 1.5, dist)));
             if (ud.config.type === 'human') {
                 const targetRot = Math.atan2(dir.x, dir.z);
                 let rotDiff = targetRot - char.rotation.y;
@@ -467,11 +468,9 @@
                 const workTasks = ['WELD', 'XRAY', 'VACUUM', 'SNACK', 'DRAWING', 'WORKOUT'];
                 const isWork = workTasks.includes(ud.actionType);
 
-                if (ud.actionType === 'TOILET') {
-                    ud.state = 'action';
-                    ud.timer = 0;
-                    if (ud.config.type === 'human') setAction(char, 'idle');
-                    updateBubble(char, 'ふぅ...');
+                if (ud.actionType === 'TOILET' || ud.actionType === 'TOILET_EXIT') {
+                    const result = toilet.arrive(char);
+                    if (result === 'finished' || !result) pickNextAction(char);
                 } 
                 else if (ud.actionType === 'DANCE') {
                     ud.state = 'action';
@@ -507,24 +506,12 @@
                 }
 
             } else if (ud.state === 'move_wait') {
-                ud.state = 'waiting';
-                if (ud.config.type === 'human') setAction(char, 'idle');
-                updateBubble(char, 'はやく終わらないかな...');
+                toilet.arrive(char);
                 const lookDir = ACTIONS.TOILET.pos.clone().sub(char.position);
                 char.rotation.y = Math.atan2(lookDir.x, lookDir.z);
             }
           }
         } 
-        else if (ud.state === 'waiting') {
-            if (!toiletUser && toiletQueue[0] === char) {
-                toiletQueue.shift(); 
-                toiletUser = char; 
-                ud.targetPos = ACTIONS.TOILET.pos.clone();
-                ud.state = 'move';
-                ud.actionType = 'TOILET';
-                updateBubble(char, 'やっと空いた！');
-            }
-        }
         else if (ud.state === 'action') {
           ud.timer += dt;
           
@@ -535,10 +522,9 @@
           }
 
           if (ud.timer > duration) {
-              if (ud.actionType === 'TOILET' && toiletUser === char) {
-                  toiletUser = null;
+              if (ud.actionType !== 'TOILET' || !toilet.finish(char)) {
+                  pickNextAction(char);
               }
-              pickNextAction(char);
           }
         } 
         else if (ud.state === 'speaking') {
@@ -595,6 +581,7 @@
       
       const responder = chars[responderKey];
       if (responder) {
+          toilet.cancel(responder);
           responder.userData.state = 'speaking';
           responder.userData.timer = 0;
           updateBubble(responder, 'ブイン...');
