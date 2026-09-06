@@ -74,6 +74,7 @@
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { createLabEnvironment } from './environment.js';
     import { createToiletQueue } from './toiletQueue.js';
+    import { createMobilePan } from './mobilePan.js';
 
     // ---- Setup ----
     const $ = (id) => document.getElementById(id);
@@ -91,6 +92,7 @@
 
     // Camera
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    let mobilePan;
     const updateCamera = () => {
       const aspect = window.innerWidth / window.innerHeight;
       const zoom = window.innerWidth < 800 ? 14 : 20; 
@@ -101,9 +103,11 @@
       camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      mobilePan?.resize();
     };
     window.addEventListener('resize', updateCamera);
     updateCamera();
+    mobilePan = createMobilePan({ camera, element: renderer.domElement });
 
     // Lights
     const ambientLight = new THREE.AmbientLight(0xc9d3d7, 0.48);
