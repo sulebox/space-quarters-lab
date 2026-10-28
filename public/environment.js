@@ -2,6 +2,7 @@ import { createLabKit } from './labPrimitives.js';
 import { createArchitecture } from './labArchitecture.js';
 import { createEquipment } from './labEquipment.js';
 import { createLabLife } from './labLife.js';
+import { createCyberAccents } from './labCyber.js';
 
 // Static, code-native miniature lab. No GLBs, network textures, animation-loop
 // callbacks, extra lights, or post-processing passes are introduced here.
@@ -10,6 +11,7 @@ export function createLabEnvironment(scene) {
   createArchitecture(kit);
   createEquipment(kit);
   createLabLife(kit);
+  createCyberAccents(kit);
   const lab = kit.finish();
   scene.add(lab);
   return lab;
