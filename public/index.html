@@ -89,6 +89,7 @@
     import { createLabEnvironment } from './environment.js';
     import { createToiletQueue } from './toiletQueue.js';
     import { createLabCameraControls, createBubbleProjector } from './labCamera.js';
+    import { createLabNavigation } from './labNavigation.js';
 
     // ---- Setup ----
     const $ = (id) => document.getElementById(id);
@@ -168,6 +169,9 @@
     gltfLoader.setDRACOLoader(draco);
 
     const chars = {}; 
+    const humanNavigation = createLabNavigation({ radius: .45 });
+    const robotNavigation = createLabNavigation({ radius: .65 });
+    const navigationFor = char => char.userData.config.type === 'robot' ? robotNavigation : humanNavigation;
     
     // アクション定義
     const ACTIONS = {
@@ -262,12 +266,13 @@
       bubbleProjector.update(char.userData.bubble, char.position, offset);
     }
 
-    function getRandomLabPos() {
-        return new THREE.Vector3(
-            (Math.random() - 0.5) * 18, 
-            0, 
-            (Math.random() - 0.5) * 12
-        );
+    function getRandomLabPos(navigation = humanNavigation) {
+        // Never spawn or choose a wandering destination inside the furniture.
+        for (let attempt = 0; attempt < 100; attempt++) {
+            const point = new THREE.Vector3((Math.random() - 0.5) * 18, 0, (Math.random() - 0.5) * 12);
+            if (navigation.isWalkable(point)) return point;
+        }
+        return new THREE.Vector3(0, 0, 4);
     }
 
     function pickNextAction(char) {
@@ -302,7 +307,7 @@
           char.userData.targetPos = basePos;
       }
       else if (['IDLE', 'CHECK', 'PRESIDENT', 'PATROL', 'SWIM'].includes(taskKey)) {
-          char.userData.targetPos = getRandomLabPos();
+          char.userData.targetPos = getRandomLabPos(navigationFor(char));
       } 
       else {
           char.userData.targetPos = action.pos.clone().add(new THREE.Vector3((Math.random()-0.5), 0, (Math.random()-0.5)));
@@ -375,7 +380,7 @@
             velocity: new THREE.Vector3()
         };
         
-        group.position.copy(getRandomLabPos());
+        group.position.copy(getRandomLabPos(navigationFor(group)));
         scene.add(group);
         chars[name] = group;
 
@@ -396,11 +401,6 @@
 
     const clock = new THREE.Clock();
     
-    const BOUNDS = {
-        xMin: -11.5, xMax: 11.5,
-        zMin: -7.5, zMax: 12.0
-    };
-
     function animate() {
       requestAnimationFrame(animate);
       const dt = Math.min(clock.getDelta(), 0.1);
@@ -415,6 +415,8 @@
       for (let i = 0; i < charArray.length; i++) {
           const char = charArray[i];
           const ud = char.userData;
+          const navigation = navigationFor(char);
+          navigation.constrain(char.position);
           if (ud.state.startsWith('move')) {
               let separation = new THREE.Vector3();
               let count = 0;
@@ -435,12 +437,10 @@
               }
               if (count > 0) {
                   separation.divideScalar(count).multiplyScalar(dt * 2.0);
-                  char.position.add(separation);
+                  navigation.displace(char.position, separation.x, separation.z);
               }
           }
           
-          char.position.x = Math.max(BOUNDS.xMin, Math.min(BOUNDS.xMax, char.position.x));
-          char.position.z = Math.max(BOUNDS.zMin, Math.min(BOUNDS.zMax, char.position.z));
       }
 
       charArray.forEach(char => {
@@ -465,15 +465,12 @@
               }
           }
 
-          const dir = ud.targetPos.clone().sub(char.position);
-          dir.y = 0;
-          const dist = dir.length();
-          
-          if (dist > 0.1) {
-            dir.normalize();
-            char.position.add(dir.multiplyScalar(Math.min(dt * 1.5, dist)));
-            if (ud.config.type === 'human') {
-                const targetRot = Math.atan2(dir.x, dir.z);
+          const movement = navigationFor(char).step(char, dt * 1.5);
+          if (movement.blocked) {
+            pickNextAction(char);
+          } else if (!movement.arrived) {
+            if (ud.config.type === 'human' && Math.hypot(movement.dx, movement.dz) > .0001) {
+                const targetRot = Math.atan2(movement.dx, movement.dz);
                 let rotDiff = targetRot - char.rotation.y;
                 while (rotDiff > Math.PI) rotDiff -= Math.PI*2;
                 while (rotDiff < -Math.PI) rotDiff += Math.PI*2;

@@ -1,3 +1,5 @@
+import { SNACK_TABLE_TOP, SNACK_STOOLS } from './labLayout.js';
+
 export function createLabLife(k) {
   snacks(k); toilet(k); gym(k); storage(k);
 }
@@ -6,7 +8,8 @@ function snacks(k){
   const {box,cyl,rod,ring,crate,cup,screen}=k;
   // The original snack arrival point (0, 0, 4) keeps a clear front apron.
   box('dark',[0,1.16,1.6],[5.13,.19,2.66],[0,0,0],true);
-  box('paper',[0,1.28,1.6],[5.23,.1,2.77],[0,0,0],true);
+  const top = SNACK_TABLE_TOP;
+  box('paper',[top.x,top.y,top.z],[top.width,top.height,top.depth],[0,0,0],true);
   box('steel',[0,1.299,3],[5.28,.055,.055]);
   box('steel',[2.64,1.29,1.6],[.05,.11,2.79]);
   for(const x of [-2.29,2.29])for(const z of [.55,2.65]){
@@ -19,15 +22,17 @@ function snacks(k){
   crate(-.21,1.34,1.07,.83,.51,.69);
   box('paper',[-1.27,1.65,1.365],[.46,.18,.012]);
   // A compact espresso machine, with spout, tray and cup.
-  box('dark',[1.31,1.91,.85],[.9,1.12,.8],[0,0,0],true);
-  box('steel',[1.31,2.18,.82],[.95,.56,.86]);
+  // The cover must sit OUTSIDE the black body on every visible face. Their
+  // fronts previously both ended at z=1.25, causing depth-buffer fighting.
+  box('dark',[1.31,1.85,.85],[.9,1,.8],[0,0,0],true);
+  box('steel',[1.31,2.18,.85],[.95,.56,.86],[0,0,0],true);
   box('edge',[1.31,1.38,1.01],[.98,.07,1.11]);
   box('rubber',[1.31,1.43,1.27],[.81,.035,.5]);
   for(let i=0;i<6;i++)box('steel',[1.03+i*.105,1.452,1.27],[.025,.012,.41]);
   rod('dark',[1.31,1.94,1.3],[1.31,1.78,1.3],.045);
   rod('steel',[1.63,1.87,1.32],[1.75,1.62,1.4],.025);
-  cyl('led',[1.08,2.15,1.265],.035,.03,[Math.PI/2,0,0]);
-  cyl('dark',[1.49,2.15,1.265],.058,.04,[Math.PI/2,0,0]);
+  cyl('led',[1.08,2.15,1.30],.035,.03,[Math.PI/2,0,0]);
+  cyl('dark',[1.49,2.15,1.305],.058,.04,[Math.PI/2,0,0]);
   cup(1.29,1.46,1.33);cup(-1.91,1.34,2.37);cup(1.92,1.34,2.61);
   for(const [x,z,mat,ry] of [[-1.02,2.36,'red',.15],[-.12,2.08,'blue',-.1],[.68,2.45,'ochre',.2]]){
     box(mat,[x,1.4,z],[.53,.12,.36],[0,ry,0]);
@@ -40,8 +45,8 @@ function snacks(k){
     ring('dark',[x,1.75,z],.032,[-Math.PI/2,0,0]);
   }
   screen(7,[-.18,1.61,1.424],[.64,.31]);
-  for(const [x,z] of [[-2.96,1.02],[3.04,1.34],[2.98,2.7]]){
-    cyl('dark',[x,.63,z],.38,.08);cyl('ochre',[x,.71,z],.37,.1);
+  for(const {x,z,radius} of SNACK_STOOLS){
+    cyl('dark',[x,.63,z],radius,.08);cyl('ochre',[x,.71,z],radius-.01,.1);
     cyl('edge',[x,.34,z],.055,.6);
     ring('steel',[x,.26,z],.28,[-Math.PI/2,0,0]);
     for(let i=0;i<3;i++){
